@@ -1,0 +1,43 @@
+# One door in front of two services.
+#
+# The app expects a single origin that serves both halves:
+#
+#   https://<host>/realms/agentix/…   Keycloak — the login
+#   https://<host>/rest/v1/…          PostgREST — the three tables
+#
+# Without this, exposing the box would mean publishing two ports and teaching the
+# app about both, which is one more thing to get wrong in a redirect URI. It also
+# means the tunnel in front is interchangeable: Tailscale Funnel, a Cloudflare
+# tunnel or an nginx on another machine all just point at this one port.
+#
+# No TLS here on purpose. Whatever exposes this box terminates HTTPS — Tailscale
+# hands out a real certificate for the .ts.net name, Cloudflare for yours — so a
+# certificate here would be a second one nobody checks.
+
+:8081 {
+	# PostgREST serves its tables at the root (`/people`), while the app asks for
+	# `/rest/v1/people`. `handle_path` strips the matched prefix, which is what
+	# makes those the same request.
+	handle_path /rest/v1/* {
+		reverse_proxy postgrest:3000
+	}
+
+	# Everything else is Keycloak: /realms for the app, /admin and /resources for
+	# the console you set the realm up in. Splitting those apart by path is how a
+	# half-working admin console happens, so it gets everything left over.
+	handle {
+		reverse_proxy keycloak:8080
+	}
+
+	# Keycloak builds absolute URLs — redirects, the issuer in every token — from
+	# these. Caddy sets them; KC_PROXY_HEADERS=xforwarded tells Keycloak to trust
+	# them. Get this wrong and login round trips land on http://localhost:8080.
+	header {
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -5,6 +5,15 @@
 # authored content ever touches this machine — that lives in each person's own
 # Supabase.
 #
+# Everything is published through **one** port, 127.0.0.1:8081, which Caddy serves:
+# `/rest/v1/…` is PostgREST and everything else is Keycloak. Whatever puts that port
+# on the internet is your choice and is not this file's business:
+#
+#   Tailscale   tailscale funnel --bg 8081      (an https://…ts.net name, no domain)
+#   Cloudflare  docker compose --profile tunnel up -d   (needs TUNNEL_TOKEN)
+#
+# Nothing listens on the LAN either way — every port below is bound to localhost.
+#
 # Nothing secret is in this file. Every credential comes from server/.env, which is
 # gitignored and lives only on the box. Copy server/.env.example to start.
 
@@ -31,8 +40,8 @@ services:
   # ── PostgREST: the /rest/v1/… API the app's identity transport speaks ────────
   postgrest:
     image: postgrest/postgrest:v12.2.3
-    ports:
-      - '127.0.0.1:3000:3000' # only the tunnel reaches it, never the LAN directly
+    expose:
+      - '3000' # reachable from Caddy only — never from the LAN, never publicly
     environment:
       PGRST_DB_URI: postgres://authenticator:${AUTHENTICATOR_PASSWORD:?set it}@postgres:5432/agentix
       PGRST_DB_SCHEMAS: public
@@ -54,8 +63,8 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: start
-    ports:
-      - '127.0.0.1:8080:8080'
+    expose:
+      - '8080' # as above: Caddy is the only thing that talks to it
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/agentix
@@ -71,8 +80,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ── The tunnel: gives the https origin the app is allowed to call ────────────
+  # ── The single door both services sit behind ─────────────────────────────────
+  caddy:
+    image: caddy:2.8-alpine
+    ports:
+      # Localhost only. Publishing it is the tunnel's job, whichever you use.
+      - '127.0.0.1:8081:8081'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - keycloak
+      - postgrest
+    restart: unless-stopped
+
+  # ── Optional: a Cloudflare tunnel, for a domain of your own ──────────────────
+  # Skipped by default. Tailscale Funnel does the same job with no domain and no
+  # token, so this only starts when you ask for it:
+  #
+  #   docker compose --profile tunnel up -d
+  #
+  # Point the tunnel's public hostname at http://caddy:8081.
   cloudflared:
+    profiles: ['tunnel']
     image: cloudflare/cloudflared:2024.8.3
     command: tunnel run
     environment:
