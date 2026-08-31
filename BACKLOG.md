@@ -55,21 +55,20 @@ more than it used to.
 
 ## Needs the owner
 
-### Push it and turn Pages on
-**The deploy pipeline is written and verified locally, but has never run** — there
-is no git remote. The repository is initialised at the root with a `.gitignore`
-that keeps native build artefacts and signing material out.
+### Point the domain at it
+**Done, as of 2026-08-31: the repo is `github.com/Ek1923/Agentix` and the site is
+live at https://ek1923.github.io/Agentix/.** The first workflow run passed on its
+own — verify, build and deploy — so the pipeline no longer counts as untested.
 
-```bash
-git remote add origin https://github.com/<you>/Agentix.git
-git add . && git commit -m "Agentix v1" && git push -u origin main
-```
+What is left is the custom domain. It is one file plus one DNS record:
 
-Then Settings → Pages → Source: **GitHub Actions**. Full detail in `DEPLOY.md`,
-including how a custom domain switches the base path with one file.
-
-Expect to fix something small on the first run; a workflow that has never executed
-usually needs one correction.
+1. `agentix-web/public/CNAME` containing nothing but the hostname. The workflow
+   reads that file to decide the base path, so this is also what switches the
+   build from `/Agentix/` to `/`.
+2. A `CNAME` record at the DNS provider pointing that hostname at
+   `ek1923.github.io`. Behind Cloudflare, the proxy has to be off.
+3. Settings → Pages → Custom domain, then **Enforce HTTPS** once the certificate
+   has been issued, which takes a few minutes.
 
 ### Manual test: a real AI request
 **From Phase 3.** Every AI path is covered by tests, but with a mocked `fetch` — a

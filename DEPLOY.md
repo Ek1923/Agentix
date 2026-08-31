@@ -3,26 +3,20 @@
 The web app ships to GitHub Pages. Android and iOS go to their own stores — see
 `agentix-android/README.md` and `agentix-ios/README.md`.
 
-Everything below is set up and verified locally. **Nothing has been pushed
-anywhere yet**, because there is no remote.
+**This is live.** The repository is `github.com/Ek1923/Agentix` (public) and the
+site is served at **https://ek1923.github.io/Agentix/**. Pages is set to build from
+GitHub Actions, and the first run — verify, build, deploy — passed without a fix.
 
-## Once, to go live
+## Publishing a change
 
-**1. Create the repository and push.**
+Push anything under `agentix-web/` to `main`. The workflow runs on its own: it
+typechecks, lints, runs the whole suite and scans for secrets before it builds, so
+a change that fails its own tests never becomes the live site.
 
-```bash
-git remote add origin https://github.com/<you>/Agentix.git
-git add .
-git commit -m "Agentix v1"
-git push -u origin main
-```
-
-**2. Turn Pages on.** Repository → Settings → Pages → Source: **GitHub Actions**.
-Not "Deploy from a branch" — the workflow publishes an artifact directly.
-
-**3. Push anything under `agentix-web/`.** The workflow runs on its own.
-
-The site appears at `https://<you>.github.io/Agentix/`.
+Nothing else is needed. If you ever recreate the repository from scratch, the
+setup is: create it empty, push `main`, then Settings → Pages → Source **GitHub
+Actions** (not "Deploy from a branch" — the workflow publishes an artifact
+directly).
 
 ## Adding your domain
 
