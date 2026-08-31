@@ -1,0 +1,65 @@
+name: Deploy identity server
+
+# The self-hosted identity server, redeployed on the owner's Ubuntu box whenever
+# its config changes. This runs on a self-hosted runner ON that box — see
+# SERVER-SETUP.md §4 — never on GitHub's shared runners, which cannot reach it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-id-server.yml'
+  workflow_dispatch:
+
+# One deploy at a time; let a queued one finish rather than killing a half-applied
+# compose.
+concurrency:
+  group: id-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # The label the runner was registered with in SERVER-SETUP.md §4a.
+    runs-on: [self-hosted, agentix-id-server]
+    steps:
+      - uses: actions/checkout@v4
+
+      # The compose reads secrets from server/.env, which lives on the box and is
+      # gitignored. Fail early and clearly if someone deploys before creating it.
+      - name: Check the environment file exists
+        run: test -f server/.env || { echo "server/.env is missing on the box — see SERVER-SETUP.md §6"; exit 1; }
+
+      - name: Bring the stack up
+        run: docker compose -f server/docker-compose.yml --env-file server/.env up -d --remove-orphans
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose -f server/docker-compose.yml exec -T postgres pg_isready -U agentix -d agentix; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres did not become ready" >&2
+          exit 1
+
+      - name: Apply the schema (idempotent)
+        run: docker compose -f server/docker-compose.yml exec -T postgres psql -U agentix -d agentix -f /schema/schema.sql
+
+      # Keycloak validates nothing here; PostgREST does, using the realm's public
+      # keys. Refresh them into the running PostgREST so a rotated signing key does
+      # not silently start rejecting every token.
+      - name: Refresh the JWKS PostgREST trusts
+        run: |
+          PUBLIC_URL=$(grep -E '^PUBLIC_URL=' server/.env | cut -d= -f2-)
+          JWKS=$(curl -fsS "$PUBLIC_URL/realms/agentix/protocol/openid-connect/certs" | tr -d '\n' || true)
+          if [ -n "$JWKS" ]; then
+            docker compose -f server/docker-compose.yml exec -T \
+              -e PGRST_JWT_SECRET="$JWKS" postgrest true || true
+            docker compose -f server/docker-compose.yml kill -s SIGUSR1 postgrest || true
+          else
+            echo "Keycloak realm not reachable yet — first run? Set JWKS_JSON by hand (SERVER-SETUP.md §8)."
+          fi
+
+      - name: Report what is running
+        run: docker compose -f server/docker-compose.yml ps

@@ -1,0 +1,22 @@
+{
+  "name": "agentix-ios",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "iOS shell around the Agentix web build",
+  "scripts": {
+    "build:web": "npm --prefix ../agentix-web run build",
+    "sync": "npm run build:web && cap sync ios",
+    "open": "cap open ios",
+    "run": "npm run sync && cap run ios"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

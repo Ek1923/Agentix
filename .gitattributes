@@ -1,0 +1,21 @@
+# Line endings are normalised to LF inside the repository.
+#
+# This project is written on Windows and runs on Linux in two places: the Pages
+# build on GitHub's runners, and the identity server's own runner on the Ubuntu
+# box. A shell script or a gradle wrapper checked out with CRLF fails there with
+# an error that says nothing useful, so the few files where it is fatal are
+# pinned explicitly rather than left to whatever autocrlf happens to be set to.
+* text=auto
+
+*.sh text eol=lf
+gradlew text eol=lf
+*.yml text eol=lf
+*.sql text eol=lf
+
+# Binary, so git never tries to translate anything inside them.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.keystore binary

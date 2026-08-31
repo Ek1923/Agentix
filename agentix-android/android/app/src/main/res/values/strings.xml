@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Agentix</string>
+    <string name="title_activity_main">Agentix</string>
+    <string name="package_name">com.egebaykal.agentix</string>
+    <string name="custom_url_scheme">com.egebaykal.agentix</string>
+</resources>

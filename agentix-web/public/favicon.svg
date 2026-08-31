@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Agentix">
+  <!--
+    Three bars: the task list the whole app is built around, and the same stacked
+    rhythm as the plugin menu. The top bar is accent and complete, the ones below
+    recede — work finished, work waiting.
+  -->
+  <rect width="64" height="64" rx="14" fill="#0b0d10"/>
+  <rect x="14" y="18" width="36" height="6" rx="3" fill="#6ea8fe"/>
+  <rect x="14" y="29" width="28" height="6" rx="3" fill="#8b97a6"/>
+  <rect x="14" y="40" width="20" height="6" rx="3" fill="#3a444f"/>
+</svg>

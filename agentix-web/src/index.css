@@ -1,0 +1,349 @@
+/*
+  Typefaces, self-hosted rather than pulled from a CDN.
+
+  Agentix is offline-first and also runs inside a WebView with no guaranteed
+  network. A font that arrives over the wire is a font that sometimes does not,
+  and a fallback flash on every cold start is the opposite of considered.
+
+  Three roles, each earning its place:
+    Archivo    — magnitude. Sturdy grotesque for figures and screen titles.
+    Plex Sans  — the interface. Quiet, legible, never competing.
+    Plex Mono  — measurement. Timers, clock times, tabular figures.
+
+  The mono is not decoration: in an app whose subject is measuring time, the
+  things that are measurements read as measurements.
+*/
+@import '@fontsource-variable/archivo';
+@import '@fontsource-variable/ibm-plex-sans';
+/* Latin only: the mono renders digits, clock times and short labels. */
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+
+@import 'tailwindcss';
+
+/*
+  Palette. Dark-first — the app is used at the start and end of a day, and a
+  bright surface at either end is hostile.
+
+  The neutrals are biased toward blue rather than left grey. An unbiased grey
+  reads as inherited; this ground reads as ink, which is the world the subject
+  lives in — days, hours, a page you write the day onto.
+
+  `@theme` is what makes `bg-surface`, `text-ink` and friends exist as utilities.
+  It only works at the top level: nested inside a media query, Tailwind drops the
+  wrapper and merges the values into the base palette. So every override below is
+  plain CSS re-declaring the same variables — the utilities already read them
+  through var(), so changing the value is all that is needed.
+
+  Three layers, in cascade order:
+    1. @theme          the dark palette, and the utilities themselves
+    2. system light    applies only when nothing has been chosen explicitly
+    3. [data-theme]    an explicit choice, which must win over the device
+*/
+@theme {
+  /* Ink neutrals: near-black with a deliberate blue cast. */
+  --color-surface: #090c14;
+  --color-raised: #111725;
+  --color-elevated: #1a2233;
+  --color-line: #232d42;
+  --color-ink: #e9edf7;
+  --color-muted: #8b98b4;
+  --color-accent: #6ea8fe;
+  --color-ok: #57cc99;
+  --color-warn: #f0a35e;
+  --color-bad: #f2777a;
+
+  /*
+    Chart fills, separate from the semantic tokens above.
+
+    The ink colours are tuned to be legible as *text* on a dark surface, which
+    puts them at OKLCH L 0.73–0.78 — too light for a filled mark. These are the
+    same hues re-stepped into the dark band (L 0.48–0.67) and validated: the two
+    poles separate by ΔE 25 for normal vision and 25 under protanopia.
+
+    Estimate accuracy is a diverging measure — under ← accurate → over — so it
+    gets two hues and a neutral grey midpoint, never a hue in the middle.
+  */
+  --color-chart-over: #c9803c;
+  --color-chart-accurate: #7a8595;
+  --color-chart-under: #4a86e8;
+  --color-chart-grid: #232d42;
+
+  --font-sans: 'IBM Plex Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Archivo Variable', 'IBM Plex Sans Variable', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-tile: 20px;
+}
+
+/* Device preference, but only while the user has not chosen for themselves. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --color-surface: #f4f6fa;
+    --color-raised: #ffffff;
+    --color-elevated: #ffffff;
+    --color-line: #dfe4ee;
+    --color-ink: #0d1220;
+    --color-muted: #5a6478;
+    --color-accent: #2563eb;
+    --color-ok: #1a7f52;
+    --color-warn: #b25e11;
+    --color-bad: #c0362f;
+    --color-chart-over: #a9611f;
+    --color-chart-accurate: #6b7686;
+    --color-chart-under: #2f6fd0;
+    --color-chart-grid: #dfe4ee;
+  }
+}
+
+/* An explicit choice wins in both directions, including "light" on a dark device. */
+:root[data-theme='light'] {
+  --color-surface: #f4f6fa;
+  --color-raised: #ffffff;
+  --color-elevated: #ffffff;
+  --color-line: #dfe4ee;
+  --color-ink: #0d1220;
+  --color-muted: #5a6478;
+  --color-accent: #2563eb;
+  --color-ok: #1a7f52;
+  --color-warn: #b25e11;
+  --color-bad: #c0362f;
+  --color-chart-over: #a9611f;
+  --color-chart-accurate: #6b7686;
+  --color-chart-under: #2f6fd0;
+  --color-chart-grid: #dfe4ee;
+}
+
+:root[data-theme='dark'] {
+  --color-surface: #090c14;
+  --color-raised: #111725;
+  --color-elevated: #1a2233;
+  --color-line: #232d42;
+  --color-ink: #e9edf7;
+  --color-muted: #8b98b4;
+  --color-accent: #6ea8fe;
+  --color-ok: #57cc99;
+  --color-warn: #f0a35e;
+  --color-bad: #f2777a;
+  --color-chart-over: #c9803c;
+  --color-chart-accurate: #7a8595;
+  --color-chart-under: #4a86e8;
+  --color-chart-grid: #232d42;
+}
+
+/*
+  Depth, as one set of variables so light and dark each get their own physics.
+
+  A dark interface cannot borrow a light one's shadows: on near-black a drop
+  shadow is nearly invisible, and what actually reads as raised is a hairline of
+  light along the top edge, as though lit from above. Light mode is the reverse —
+  there the shadow does the work and the highlight does nothing.
+*/
+:root {
+  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --surface-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.028), transparent 120px);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.9);
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -14px rgb(15 23 42 / 0.14);
+    --shadow-lift: 0 2px 6px rgb(15 23 42 / 0.08), 0 18px 44px -18px rgb(15 23 42 / 0.22);
+    --surface-sheen: none;
+  }
+}
+
+:root[data-theme='light'] {
+  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -14px rgb(15 23 42 / 0.14);
+  --shadow-lift: 0 2px 6px rgb(15 23 42 / 0.08), 0 18px 44px -18px rgb(15 23 42 / 0.22);
+  --surface-sheen: none;
+}
+
+:root[data-theme='dark'] {
+  --edge-light: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 16px 40px -16px rgb(0 0 0 / 0.6);
+  --surface-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.028), transparent 120px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  /*
+    A WebView treats a downward drag at the top as pull-to-refresh, which reloads
+    the app mid-scroll. There is nothing to refresh — the database is local.
+    WKWebView also rescales text on rotation unless told not to.
+  */
+  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 250ms ease-out,
+    color 250ms ease-out;
+
+  /*
+    `viewport-fit=cover` lets the page paint under a notch and the gesture bar,
+    which would otherwise put the profile bar under the status bar. These insets
+    put the content back where a thumb can reach it. Every value is zero on the
+    web, so the same rules are harmless there.
+  */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/*
+  One ambient wash behind everything, anchored where the eye lands first.
+
+  Tinted by the chosen accent through color-mix, so switching accent changes the
+  whole room's light rather than only the buttons. The boldness is spent here and
+  kept out of everything else.
+*/
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      60rem 32rem at 50% -14rem,
+      color-mix(in oklab, var(--color-accent) 13%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      42rem 26rem at 100% 0%,
+      color-mix(in oklab, var(--color-accent) 6%, transparent),
+      transparent 70%
+    );
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+  Touch belongs to the app, not to the browser's double-tap zoom, and a long press
+  on a card should not offer to select its text mid-drag.
+*/
+button,
+[role='button'],
+[role='checkbox'],
+[role='radio'],
+[role='option'],
+[role='menuitem'] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*
+  The surface primitive.
+
+  Every card in the app used to spell out the same four utilities, which is why
+  they all carried exactly the same weight — a wall of identical boxes. One class
+  means the app's depth is tuned in one place, and a raised thing looks raised.
+*/
+@utility card {
+  background-color: var(--color-raised);
+  background-image: var(--surface-sheen);
+  border: 1px solid var(--color-line);
+  box-shadow:
+    var(--shadow-card),
+    var(--edge-light);
+}
+
+@utility card-lift {
+  box-shadow:
+    var(--shadow-lift),
+    var(--edge-light);
+}
+
+/* Headings and figures. Tightened, because a display face set loose reads soft. */
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+/* Anything that is a measurement rather than a word. */
+@utility measure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Small uppercase labels need air, or they set as a smear. */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Keyboard focus stays visible everywhere; pointer focus does not draw a ring. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/*
+  Scroll containers get a slim, theme-aware scrollbar. The plugin bar is meant to
+  read as a scrollable surface, so the bar should be visible rather than hidden.
+*/
+.agentix-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+
+.agentix-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.agentix-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.agentix-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-line);
+  border-radius: 9999px;
+}
+
+.agentix-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

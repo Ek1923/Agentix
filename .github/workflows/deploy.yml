@@ -1,0 +1,106 @@
+name: Deploy web to GitHub Pages
+
+# Only the web build ships here. Android and iOS go to their own stores.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agentix-web/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# One deploy at a time. `cancel-in-progress: false` so a queued deploy finishes
+# rather than being killed halfway through publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  # Everything that can fail runs here, before anything is published. A build
+  # that fails its own tests must never become the live site.
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agentix-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agentix-web/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Scan for secrets
+        # Guards the promise in PRIVACY.md: no key-shaped literal ever ships.
+        run: npm run scan-secrets
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agentix-web/package-lock.json
+
+      - name: Work out the base path
+        id: base
+        # A custom domain serves from the root; a project page serves from
+        # /<repo>/. The presence of a CNAME file is what decides, so adding a
+        # domain is one file and no workflow edit.
+        run: |
+          if [ -f agentix-web/public/CNAME ]; then
+            echo "value=/" >> "$GITHUB_OUTPUT"
+            echo "Custom domain found: building for the site root."
+          else
+            echo "value=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+            echo "No CNAME: building for /${{ github.event.repository.name }}/."
+          fi
+
+      - name: Build
+        working-directory: agentix-web
+        env:
+          AGENTIX_BASE: ${{ steps.base.outputs.value }}
+          # Publishable by design — the anon key ships in the bundle and
+          # row-level security is what protects the data. Absent is fine: the
+          # Account panel then says sync is not configured.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: npm ci && npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: agentix-web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

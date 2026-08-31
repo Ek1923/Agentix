@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <!--
+      Relative, not absolute: the app is served from the site root behind a custom
+      domain and from /<repo>/ on a project page, and an absolute path breaks one
+      of the two.
+    -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="favicon.svg" />
+    <!-- Colours the Android address bar and the iOS status bar to match the app. -->
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d10" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f7f9" />
+    <meta name="description" content="Offline-first personal agenda and productivity app." />
+    <title>Agentix</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+# Agentix identity server.
+#
+# Four containers, one job: run the light coordination layer (organisations,
+# memberships, the shared people pool) and issue the logins that reach it. No
+# authored content ever touches this machine — that lives in each person's own
+# Supabase.
+#
+# Nothing secret is in this file. Every credential comes from server/.env, which is
+# gitignored and lives only on the box. Copy server/.env.example to start.
+
+name: agentix-id
+
+services:
+  # ── The database: only the three coordination tables ─────────────────────────
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: agentix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in server/.env}
+      POSTGRES_DB: agentix
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./schema:/schema:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U agentix -d agentix']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── PostgREST: the /rest/v1/… API the app's identity transport speaks ────────
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    ports:
+      - '127.0.0.1:3000:3000' # only the tunnel reaches it, never the LAN directly
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${AUTHENTICATOR_PASSWORD:?set it}@postgres:5432/agentix
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      # Route A — asymmetric. PostgREST validates the token against Keycloak's
+      # PUBLIC key; no shared secret. PostgREST does not fetch JWKS from a URL, so
+      # the key material is supplied here as a JWKS JSON. `deploy-id-server.yml`
+      # refreshes it from Keycloak on each deploy; rotate the realm key → redeploy.
+      #   [nog niet af] populated once Keycloak is running — see SERVER-SETUP.md §8.
+      PGRST_JWT_SECRET: ${JWKS_JSON:-}
+      PGRST_JWT_ROLE_CLAIM_KEY: .role
+      PGRST_JWT_AUD: agentix-web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Keycloak: login + asymmetric token issuance ──────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/agentix
+      KC_DB_USERNAME: agentix
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_HOSTNAME: ${PUBLIC_URL:?set PUBLIC_URL in server/.env}
+      KC_PROXY_HEADERS: xforwarded # behind the tunnel
+      KC_HTTP_ENABLED: 'true'
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set it}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── The tunnel: gives the https origin the app is allowed to call ────────────
+  cloudflared:
+    image: cloudflare/cloudflared:2024.8.3
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set it in server/.env}
+    restart: unless-stopped
