@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Loader2, ServerCog, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Building2, Loader2, ServerCog, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   OAUTH_PROVIDERS,
@@ -23,7 +23,9 @@ import {
   providerLabel,
   rememberAccount,
 } from '../core/auth/accounts'
+import { signIn as signInWithOrganisation } from '../core/auth/keycloak'
 import { useAuth } from '../core/auth/store'
+import { readIdentityConfig } from '../core/sync/identity'
 import { activeProject } from '../core/sync/projects'
 import { isValidProjectUrl, readSupabaseConfig, saveStoredConfig } from '../core/sync/supabase'
 import { BrandMark } from '../ui/components/BrandMark'
@@ -74,7 +76,12 @@ export function SignIn({
   const [mode, setMode] = useState<Mode>('in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState<'form' | OAuthProvider | null>(null)
+  const [busy, setBusy] = useState<'form' | 'organisation' | OAuthProvider | null>(null)
+
+  /* The organisation's hostname, when this device has one to offer. Read once:
+     it is a build variable or a device setting, neither of which changes while
+     somebody is looking at this screen. */
+  const organisation = readIdentityConfig()?.url.replace(/^https?:\/\//, '') ?? null
   /*
     The accounts this device has seen, for the project it is pointed at.
 
@@ -140,6 +147,25 @@ export function SignIn({
     } finally {
       setBusy(null)
     }
+  }
+
+  /**
+   * The organisation's own sign-in, when this device knows one.
+   *
+   * Offered first and on its own, because for somebody who was invited it is not
+   * one option among four — it is the door. The rest of the card is the personal
+   * route, and saying so out loud is cheaper than letting them guess.
+   */
+  function startOrganisation() {
+    setBusy('organisation')
+    feedback('light')
+    void signInWithOrganisation().then((left) => {
+      if (!left) {
+        setBusy(null)
+        setStatus({ ok: false, message: 'This browser could not start that sign-in.' })
+      }
+      // On success the browser leaves the page, so `busy` is deliberately left set.
+    })
   }
 
   function startProvider(provider: OAuthProvider) {
@@ -238,6 +264,34 @@ export function SignIn({
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {organisation !== null && (
+              <div className="mb-5 flex flex-col gap-3">
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={startOrganisation}
+                  className="flex w-full items-center justify-center gap-2.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-surface transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy === 'organisation' ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Building2 className="size-4" aria-hidden />
+                  )}
+                  Continue with {organisation}
+                </button>
+                <p className="text-center text-xs leading-relaxed text-muted">
+                  Your organisation signs you in. Your tasks, notes and time still
+                  live in your own project — it never sees them.
+                </p>
+
+                <div className="flex items-center gap-3">
+                  <span className="h-px flex-1 bg-line" aria-hidden />
+                  <span className="text-[11px] uppercase tracking-wider text-muted">or</span>
+                  <span className="h-px flex-1 bg-line" aria-hidden />
+                </div>
               </div>
             )}
 

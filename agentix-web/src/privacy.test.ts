@@ -21,6 +21,19 @@ const ALLOWED_HOSTS = [
   'platform.openai.com',
 ]
 
+/**
+ * Names reserved for documentation by RFC 2606, which resolve to nothing anywhere.
+ *
+ * They appear in placeholder text — the field where somebody types their own
+ * organisation server has to show the shape of an answer. Allowed because the
+ * guarantee this test protects is about hosts the app *contacts*, and one of these
+ * can never be contacted: they exist precisely so that examples are inert. A real
+ * hostname still fails, which is the point.
+ */
+function isDocumentationHost(host: string): boolean {
+  return /(^|\.)example\.(com|org|net)$/.test(host)
+}
+
 function sourceFiles(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry)
@@ -40,7 +53,7 @@ describe('privacy guarantees', () => {
     for (const file of sourceFiles('src')) {
       const contents = readFileSync(file, 'utf8')
       for (const [, host] of contents.matchAll(/https?:\/\/([a-zA-Z0-9.-]+)/g)) {
-        if (host && !ALLOWED_HOSTS.includes(host) && host !== 'localhost') {
+        if (host && !ALLOWED_HOSTS.includes(host) && host !== 'localhost' && !isDocumentationHost(host)) {
           offenders.push(`${file}: ${host}`)
         }
       }

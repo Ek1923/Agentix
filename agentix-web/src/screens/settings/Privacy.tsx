@@ -18,6 +18,7 @@ const claims = [
   'It goes only to the provider you picked, directly, when you use a feature that needs it.',
   'It never syncs — not even to a project of your own.',
   'Your tasks and notes stay here too, until you connect a project you own.',
+  'An organisation only ever sees the roster and the shared people — never what you wrote.',
   'No analytics, no tracking, no cookies, and no account with us.',
 ]
 

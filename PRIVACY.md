@@ -98,8 +98,15 @@ sync can be told apart from a server that is down.
 
 When your project is connected:
 
-- Your tasks, notes, sessions, columns, people and routines are sent to **your**
-  project, under **your** account. We have no access to it.
+- Your tasks, notes, sessions, columns and routines are sent to **your** project,
+  under **your** account. We have no access to it.
+- **If you are part of an organisation**, one more server is involved and it holds
+  deliberately little: the organisation, who is on its roster, and the shared pool
+  of people a task can be assigned to. Names and labels — never a task, a note, a
+  timer or anything you wrote. That split is the reason it exists: the content
+  stays in a project you control, so a leak is yours to contain rather than
+  somebody else's to explain. Your organisation runs that server, and its address
+  is one you or they set; it is never built into the app.
 - **Your API keys are never synced.** Not as an option, not as a setting. They
   live in a separate database on the device that entered them.
 - **A running timer is never sent** until you stop it, so two devices cannot end
@@ -116,8 +123,9 @@ Nothing.
 No analytics, no tracking pixels, no cookies, no crash reporting, and no account
 with us — the only account involved is the one on your own Supabase project.
 Agentix makes no network request except to the AI provider you configured, the sync
-server you named — including the once-a-minute check that it is up — and, only if
-you choose that route to sign in, Google, Apple or GitHub.
+server you named — including the once-a-minute check that it is up — your
+organisation's server if you belong to one, and, only if you choose that route to
+sign in, Google, Apple or GitHub.
 
 ## Hosting
 

@@ -9,6 +9,7 @@ import { ApiKeys } from './settings/ApiKeys'
 import { Connection } from './settings/Connection'
 import { DataSettings } from './settings/DataSettings'
 import { OrganizationCard } from './settings/OrganizationCard'
+import { OrganizationServer } from './settings/OrganizationServer'
 import { PluginSettings } from './settings/PluginSettings'
 import { Preferences } from './settings/Preferences'
 import { Privacy } from './settings/Privacy'
@@ -83,6 +84,7 @@ export function Settings({ onBack, onOpenOrganization, onSignIn }: SettingsProps
 
             <Section title="Organisation">
               <OrganizationCard onOpen={onOpenOrganization} />
+              <OrganizationServer />
             </Section>
           </>
         )}

@@ -3,7 +3,9 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { signInWithProvider } from '../core/auth'
+import { signIn as signInWithOrganisation } from '../core/auth/keycloak'
 import { useAuth } from '../core/auth/store'
+import { saveIdentityUrl } from '../core/sync/identity'
 import { saveStoredConfig } from '../core/sync/supabase'
 import { SignIn } from './SignIn'
 
@@ -15,6 +17,12 @@ import { SignIn } from './SignIn'
 vi.mock('../core/auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../core/auth')>()
   return { ...actual, signInWithProvider: vi.fn(() => true) }
+})
+
+/* The organisation route leaves the page too, and for the same reason. */
+vi.mock('../core/auth/keycloak', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../core/auth/keycloak')>()
+  return { ...actual, signIn: vi.fn(async () => true) }
 })
 
 const CONFIG = { url: 'https://example.supabase.co', anonKey: 'a'.repeat(40) }
@@ -188,5 +196,57 @@ describe('with a project configured', () => {
     await user.click(screen.getByRole('button', { name: /^create account$/i }))
 
     expect((await screen.findByRole('status')).textContent).toMatch(/confirm/i)
+  })
+})
+
+describe('the organisation route', () => {
+  it('is not offered when this device knows no organisation server', () => {
+    saveStoredConfig(CONFIG)
+    render(<SignIn />)
+
+    // "Continue with Google" is a different offer; what is absent here is the
+    // organisation block, which is the only thing that names a host.
+    expect(screen.queryByText(/live in your own project/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /continue with \S+\.\S+/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('leads with the organisation, named, when there is one', async () => {
+    saveStoredConfig(CONFIG)
+    saveIdentityUrl('https://id.example.com')
+
+    render(<SignIn />)
+
+    // Named rather than "your organisation": somebody who was invited recognises
+    // the hostname, and it is also how you spot a device pointed at the wrong box.
+    const button = await screen.findByRole('button', { name: /continue with id.example.com/i })
+    expect(button).toBeInTheDocument()
+    expect(screen.getByText(/live in your own project/i)).toBeInTheDocument()
+  })
+
+  it('starts the realm sign-in when it is pressed', async () => {
+    const user = userEvent.setup()
+    saveStoredConfig(CONFIG)
+    saveIdentityUrl('https://id.example.com')
+
+    render(<SignIn />)
+    await user.click(await screen.findByRole('button', { name: /continue with id.example.com/i }))
+
+    expect(signInWithOrganisation).toHaveBeenCalled()
+  })
+
+  it('says so when the browser cannot start it, rather than sitting there spinning', async () => {
+    const user = userEvent.setup()
+    vi.mocked(signInWithOrganisation).mockResolvedValueOnce(false)
+    saveStoredConfig(CONFIG)
+    saveIdentityUrl('https://id.example.com')
+
+    render(<SignIn />)
+    await user.click(await screen.findByRole('button', { name: /continue with id.example.com/i }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toMatch(/could not start/i),
+    )
   })
 })

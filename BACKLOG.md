@@ -83,10 +83,17 @@ tested against a stubbed `fetch`:
    variables → Actions → Variables), and each member's Supabase to trust the realm
    as a third-party issuer.
 3. **Flip `features.accounts` to `true`** in `core/features.ts`.
-4. **There is still no settings field for the server URL.** It comes from the build
-   variable, or from `localStorage` under `agentix-identity-url` for testing. A
-   field belongs next to the Supabase project one in the Account card, and is worth
-   adding the day a second person has to point their browser at the box.
+4. ~~There is still no settings field for the server URL.~~ **Done.** Settings →
+   Organisation → *Organisation server* takes the address, refuses plain http
+   outside localhost, and has a **Check now** that reads the realm's public
+   discovery document — which needs nobody to be signed in, so it works while the
+   box is still being stood up. It tells three states apart: answering, answering
+   but with no `agentix` realm on it (the usual first mistake), and silence.
+   Sign-in leads with **Continue with <host>** when a server is set.
+
+Still missing on this half: the shell's status light knows about one backend, not
+two, and the sign-in screen's "which providers are on" probe still asks Supabase
+rather than the realm. Neither matters until the box answers.
 
 ---
 

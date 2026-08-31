@@ -1,3 +1,4 @@
+import { realmUrl, type IdentityConfig } from './identity'
 import type { SupabaseConfig } from './supabase'
 
 /**
@@ -139,6 +140,75 @@ export async function checkHealth(
       message: '',
     }
     return { ...result, message: describeHealth(result) }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/* ── The organisation's own server ──────────────────────────────────────────── */
+
+/**
+ * The realm's discovery document — small, public, and cached by nobody here.
+ *
+ * A better liveness probe than any endpoint of ours would be, because answering
+ * it at all proves the whole chain: the tunnel is up, the container is running,
+ * and the realm exists. A 404 here is the single most common way a fresh box is
+ * wrong — the realm was never created — and it is worth telling apart from silence.
+ */
+export const REALM_DISCOVERY_PATH = '/.well-known/openid-configuration'
+
+function describeIdentityHealth(result: HealthResult): string {
+  switch (result.status) {
+    case 'online':
+      return result.latencyMs !== null && result.latencyMs >= SLOW_MS
+        ? `Answering, but slow — ${result.latencyMs} ms`
+        : `Answering${result.latencyMs === null ? '' : ` — ${result.latencyMs} ms`}`
+    case 'unauthorized':
+      // Reachable, but not the realm the app expects. Usually a realm that was
+      // never created, or created under another name.
+      return 'The server answered, but there is no agentix realm on it.'
+    case 'offline':
+      return 'No answer. The server may be down, or the tunnel is not up.'
+    case 'unknown':
+      return 'Not checked yet.'
+  }
+}
+
+/**
+ * One heartbeat against the organisation's server.
+ *
+ * Nothing is sent with it: the discovery document is public by design, so this
+ * needs no token and can be run before anybody has signed in — which is exactly
+ * when you want it, standing a new box up.
+ */
+export async function checkIdentityHealth(
+  config: IdentityConfig,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = 8000,
+): Promise<HealthResult> {
+  const at = new Date().toISOString()
+  const started = Date.now()
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetchImpl(`${realmUrl(config)}${REALM_DISCOVERY_PATH}`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+
+    const latencyMs = Date.now() - started
+    const status: HealthStatus =
+      response.status === 404 ? 'unauthorized' : response.ok ? 'online' : 'offline'
+
+    const result: HealthResult = { status, latencyMs, at, message: '' }
+    return { ...result, message: describeIdentityHealth(result) }
+  } catch {
+    // The error is dropped, as everywhere else: it can carry the request.
+    const result: HealthResult = { status: 'offline', latencyMs: null, at, message: '' }
+    return { ...result, message: describeIdentityHealth(result) }
   } finally {
     clearTimeout(timer)
   }
