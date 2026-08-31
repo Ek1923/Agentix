@@ -4,8 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { consumeOAuthRedirect, loadSession } from './core/auth'
 import { rememberAccount, takePendingProvider } from './core/auth/accounts'
+import { consumeRedirect } from './core/auth/keycloak'
 import { useAuth } from './core/auth/store'
 import { features } from './core/features'
+import { isIdentityConfigured } from './core/sync/identity'
 import { activeProject } from './core/sync/projects'
 
 /*
@@ -46,6 +48,27 @@ if (features.accounts && oauth.status === 'failed') window.location.hash = '#/si
 */
 if (features.accounts && window.location.hash === '' && loadSession() === null) {
   window.location.hash = '#/signin'
+}
+
+/*
+  A return from the organisation's Keycloak, which arrives differently.
+
+  Supabase hands its answer back in the fragment, so it has to be read and scrubbed
+  before the router looks at the hash. Keycloak's authorization code comes back in
+  the query, where it disturbs nothing — but redeeming it is a round trip to the
+  server, and blocking first paint on that would trade a visible app for a spinner.
+
+  So it runs alongside the render and adopts the session when it lands. Anything
+  that needs an account is behind a signed-in check anyway, and this way a slow or
+  unreachable server costs nothing on a screen that never needed it.
+*/
+if (features.accounts && isIdentityConfigured()) {
+  void consumeRedirect().then((outcome) => {
+    if (outcome.status === 'signed-in') {
+      useAuth.getState().adopt(outcome.session)
+      rememberAccount(outcome.session, 'email', activeProject()?.id ?? null)
+    }
+  })
 }
 
 createRoot(document.getElementById('root')!).render(

@@ -20,12 +20,23 @@ project, not from the organisation's box.
 compile error until someone decides which side it belongs to. `runSyncSplit` in
 `engine.ts` fans a pass out over both transports.
 
-**The identity half is not built yet.** The routing, the engine and the server's
-schema exist; the client transport that talks to PostgREST on that box, and the
-Keycloak login that signs the token both sides trust, do not. Until they do,
-`core/features.ts` keeps accounts off entirely, and the sections below describe the
-`data` half — which is finished. The owner's runbook for the server is
-`SERVER-SETUP.md` at the repo root.
+**Both halves are built; only the box is missing.** `identity.ts` is the transport
+for the organisation's server, `../auth/keycloak.ts` is the sign-in that produces
+the token both sides trust, and `split.ts` decides which of them a given device can
+use. Nothing here has ever spoken to a real server — every test runs against a
+stubbed `fetch` — and `core/features.ts` keeps accounts off until one answers. The
+owner's runbook for standing it up is `SERVER-SETUP.md` at the repo root.
+
+**One token, two servers.** Under route A a person signs in once, at Keycloak, and
+the same access token goes to their own Supabase, which is configured to trust the
+realm as a third-party issuer. Supabase still wants its `apikey` alongside, because
+that names the project rather than the person. No secret is ever copied between the
+organisation's box and anybody's project: the realm's public keys are enough to
+check a signature, and only the box can produce one.
+
+Where the box is comes from `VITE_IDENTITY_URL` at build time, or from a device
+override in `localStorage` for a server that is still being stood up. It is a
+public hostname, not a secret.
 
 ## Shape
 
@@ -35,15 +46,24 @@ core/sync/
 ├── backends.ts   which backend owns which table — pure data, exhaustive
 ├── engine.ts     one sync pass, against a SyncTransport interface; runSyncSplit
 │                 drives one pass per backend
-├── supabase.ts   the transport, over PostgREST
+├── postgrest.ts  the requests themselves — both backends speak this
+├── supabase.ts   the person's own project: where it is, and its apikey
+├── identity.ts   the organisation's own server: where it is, and its tables
+├── split.ts      which transports a device can use right now
 └── README.md     this file, including the SQL you have to run
-core/auth/        sign-in over GoTrue, session in localStorage
+core/auth/        GoTrue sign-in, and keycloak.ts for the organisation's realm
 ```
 
-The auth folder is still GoTrue: it is what the app signs in with today. The
-destination is Keycloak signing an asymmetric token that every member's Supabase
-verifies with the public key — no shared secret leaving the server — and that is
-the next thing to build, not something already here.
+`postgrest.ts` exists because both backends run PostgREST and differ in three
+things only — where they live, what proves who is asking, and what the tables are
+called. Those are its parameters. Writing the second transport as a copy of the
+first would have left two places to fix the day an upsert preference turns out to
+be wrong.
+
+The auth folder holds both routes: `index.ts` signs in over Supabase's GoTrue,
+which is what a personal install uses, and `keycloak.ts` is the organisation's
+route — authorization code with PKCE, because a browser app cannot keep a client
+secret.
 
 `merge.ts` is the file the Swift build translates. Both platforms must resolve a
 conflict identically or two devices will disagree about the same row forever.

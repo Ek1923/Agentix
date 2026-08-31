@@ -87,6 +87,11 @@ jobs:
           # Account panel then says sync is not configured.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # The organisation's own identity server, e.g. https://id.example.com.
+          # A public hostname, not a secret: what protects what is behind it is the
+          # token Keycloak signs and the policies on the box. Absent is fine — the
+          # app is then the personal one, syncing only the person's own project.
+          VITE_IDENTITY_URL: ${{ vars.VITE_IDENTITY_URL }}
         run: npm ci && npm run build
 
       - uses: actions/configure-pages@v5

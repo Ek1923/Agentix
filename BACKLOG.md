@@ -53,6 +53,43 @@ more than it used to.
 
 ---
 
+## The identity client is built, the server is not
+
+**Shipped 2026-08-31.** The app side of the organisation's server is done and
+tested against a stubbed `fetch`:
+
+- `core/auth/keycloak.ts` — authorization code with **PKCE**, an S256 challenge
+  that never falls back to `plain`, a `state` check that refuses a code this
+  browser did not ask for, the query scrubbed out of history before anything else
+  happens, refresh that signs out on a rejection but *not* on an unreachable
+  server, and a sign-out that clears this device before it asks Keycloak to end the
+  session there.
+- `core/sync/identity.ts` — the PostgREST transport for the box, and where the box
+  is (`VITE_IDENTITY_URL`, or a device override for one being stood up). It refuses
+  plain http except on localhost, and throws rather than carrying a table that
+  belongs to the other backend.
+- `core/sync/postgrest.ts` — the requests both backends share, extracted from the
+  Supabase transport rather than copied.
+- `core/sync/split.ts` — which transports a device can use: **both**, **data-only**
+  when there is no organisation server, or **none**. An organisation server without
+  a personal project is deliberately *not* syncable: the roster would sync while
+  every task stayed queued behind a backend that is not there.
+
+**What is left, in order:**
+
+1. **Stand the box up** — `SERVER-SETUP.md`. Nothing in this repo has ever spoken
+   to a real Keycloak or a real PostgREST.
+2. **Set `VITE_IDENTITY_URL`** as a repository variable (Settings → Secrets and
+   variables → Actions → Variables), and each member's Supabase to trust the realm
+   as a third-party issuer.
+3. **Flip `features.accounts` to `true`** in `core/features.ts`.
+4. **There is still no settings field for the server URL.** It comes from the build
+   variable, or from `localStorage` under `agentix-identity-url` for testing. A
+   field belongs next to the Supabase project one in the Account card, and is worth
+   adding the day a second person has to point their browser at the box.
+
+---
+
 ## Needs the owner
 
 ### Point the domain at it

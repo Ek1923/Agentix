@@ -15,12 +15,10 @@ import {
 import { useAuth } from '../../core/auth/store'
 import { queries } from '../../core/db/queries'
 import { localStorageCursor, runSync } from '../../core/sync/engine'
+import { readIdentityConfig } from '../../core/sync/identity'
 import { activeProject } from '../../core/sync/projects'
-import {
-  createSupabaseTransport,
-  isSyncConfigured,
-  readSupabaseConfig,
-} from '../../core/sync/supabase'
+import { resolveTransports } from '../../core/sync/split'
+import { isSyncConfigured, readSupabaseConfig } from '../../core/sync/supabase'
 import { Button } from '../../ui/components/Button'
 import { Card } from '../../ui/components/Card'
 import { Menu } from '../../ui/components/Menu'
@@ -62,18 +60,29 @@ export function Account({ onSignIn }: { onSignIn: () => void }) {
     try {
       const active = await currentSession()
       const config = readSupabaseConfig()
-      if (active === null || config === null) {
+
+      /*
+        One pass, one or two servers.
+
+        `resolveTransports` owns the rule: the roster and the shared pool go to the
+        organisation's own server when this device knows one, and everything the
+        person authors goes to their own project either way. The token is the same
+        on both — that is what route A's asymmetric signing buys.
+      */
+      const identity = readIdentityConfig()
+      const { transportFor } = resolveTransports({
+        identity: identity === null ? null : { config: identity },
+        data: config === null ? null : { config },
+        session: active === null ? null : active,
+      })
+
+      if (active === null || transportFor === null) {
         adopt(active)
         setStatus({ ok: false, message: 'Sign in again to keep syncing.' })
         return
       }
 
-      const transport = createSupabaseTransport({
-        config,
-        accessToken: active.accessToken,
-        userId: active.userId,
-      })
-      const result = await runSync(queries, transport, localStorageCursor())
+      const result = await runSync(queries, transportFor, localStorageCursor())
 
       adopt(active)
       setStatus(result)

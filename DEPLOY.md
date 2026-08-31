@@ -72,7 +72,12 @@ Sync is optional and the site works fully without it. To enable it, add two
 ```
 VITE_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY
+VITE_IDENTITY_URL
 ```
+
+The third is the organisation's own identity server, e.g. `https://id.example.com`.
+Leave it out and the build is the personal app: sign-in over the person's own
+project, no roster, no shared pool.
 
 Variables, not secrets — both values are publishable by design. The anon key is
 meant to ship in the bundle, and row-level security is what actually protects the
